@@ -68,9 +68,10 @@ LAYER3·LAYER4·LAYER5 모두 Claude Opus 4.5 zero-shot 호출:
 - "예측이 맞았다" 결론 신뢰성 약화
 
 **개선 후보**:
-- 각 layer 호출에 3회 평균 (비용 3배, 신뢰도 ↑)
-- 또는 temperature 명시 (Claude CLI는 default 사용 — 명시 시 0 가능)
-- daily snapshot에 `n_calls`·`agreement_pct` 메타 박기
+- ⚠️ **Claude CLI는 `--temperature` 옵션 미지원** (검증 끝남: `claude -p --help` 결과 `--model`만). SDK 직접 호출이 아니라 CLI 사용 한 LAYER3·4·5는 temperature 강제 불가
+- **2026-05-03 적용**: `DETERMINISTIC_NOTE` 상수 — SYSTEM_PROMPT에 "결정론적 출력 강제" 자연어 박음. 효과 약하지만 비용 0
+- **추가 후보 (보수적)**: 각 layer 호출에 3회 평균 (비용 3배, agreement_pct 메타 박기). Layer3/4/5 dataclass에 `n_calls`/`determinism_note` 필드 이미 추가 완료
+- **근본 해결**: Anthropic SDK 직접 호출로 전환 + `temperature=0` (CLI subscription → API 비용 모델 변경 큰 작업)
 
 ## 5. Layer 간 인터페이스 schema 버전 관리 부재
 
@@ -108,11 +109,11 @@ class Layer2Output:
 
 ## 우선순위 (보수적)
 
-1. **#5 Schema version** (5분, 즉시) → 다음 변경 시 silent break 방지
-2. **#4 temperature=0** (10분) → 즉시 일관성 향상
-3. **#1 검증 메타** (1~2시간) → 21-case harness 또는 즉시 메타 표시
-4. **#3 평가 임계** (1~2시간) → 5/8 머지 결정 전에 정량화 필수
-5. **#2 Mock 갭** (지속) → 외부 source wire-up은 진행 중, 잔여는 후속
+1. ✅ **#5 Schema version** (5/3 적용 완료) — Layer2~5 dataclass에 `schema_version` + 다음 layer가 받을 때 검증 raise
+2. ✅ **#4 DETERMINISTIC_NOTE prompt 명시** (5/3 적용) — Claude CLI temperature 미지원 → 자연어 강제. 3-rep 메타 필드(`n_calls`/`determinism_note`)도 박힘. 실제 3회 평균 호출은 후속
+3. ✅ **#3 평가 임계** (5/3 적용) — `eval_forecast.py` `MERGE_THRESHOLDS` + `check_merge_eligibility()`. 5/8 머지 결정 자의화 차단
+4. **#1 21-case harness** (1~2시간) — 별도 회차. 21 시나리오 × 3-rep 평균 + baseline 측정
+5. **#2 Mock 갭** (지속) — 외부 source wire-up은 진행 중, 잔여는 후속
 
 ---
 
