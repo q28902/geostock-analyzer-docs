@@ -86,3 +86,5 @@ geoaffinity analyze "북한이 ICBM을 발사했다"
 | 방향 적중 | 87% |
 | 순위 적중 | 100% |
 | **종합** | **87%** |
+
+> ⚠️ **이 수치는 메타데이터 부재 상태로 인용됨**: 검증 데이터셋·표본 크기(n)·baseline(random %)·측정일·측정자 모두 미명시. **마케팅 자료 사용 금지**. 자세한 한계는 [LIMITATIONS.md](./LIMITATIONS.md#1-검증-메타데이터-부재-가장-중요) 참조. 신규 측정 (21-case harness + baseline) 후 재게시 예정.

@@ -30,6 +30,7 @@ LAYER5 ─ 한국 종목 단위 trade signal (홀딩·관심·시총상위 unive
 
 ## Documents
 
+- ⚠️ **[LIMITATIONS](docs/LIMITATIONS.md) — 현재 PoC 한계 (먼저 읽기 권장)** — 검증 메타데이터·mock 잔존·평가 임계·LLM 비결정성·schema 버전 5 보완사항
 - [Architecture](docs/architecture.md) — 5층 데이터 흐름 + 입력·출력 스키마
 - [LAYER1 — 지정학 affinity + add-on lens](docs/layer1.md)
 - [LAYER2 — 매크로 변수](docs/layer2.md)
