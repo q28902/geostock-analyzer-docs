@@ -113,6 +113,55 @@ class Layer2Output:
 - L3는 받은 L2의 버전을 검증 (`assert l2.schema_version == "1.0"`)
 - 호환 깨질 변경 시 minor → major bump
 
+## 6. 재무·공시 데이터 시계 미스매치 (5/3 적용)
+
+LAYER5 입력은 시계가 다른 데이터의 혼합:
+- OHLCV: 실시간 (전일 close)
+- 외인·기관 매매: 5d/30d 누적
+- PER/PBR/EPS/BPS: **분기 또는 연간 결산** (3개월+ lag 가능)
+- 공시: 즉시
+
+**위험**: prompt에 시점 라벨 없으면 LLM이 분기 데이터를 실시간으로 오인. 1Q 결과를 4Q 시장 분석에 쓰는 위험.
+
+**5/3 적용**:
+- `StockFundamentals`에 `as_of_period` 필드 (예: "2025.12") + `fetched_at` (UTC ISO)
+- Naver 메인 페이지 th `(2025.12)` 패턴 추출
+- `_stock_to_dict`/`_stock_to_dict_brief` 둘 다 prompt payload에 박음
+- SYSTEM_PROMPT 분석 원칙 11번: "as_of XXXX.XX 데이터 기준 — 이미 시장에 반영된 정보" rationale 명시 의무
+
+## 7. portfolio_weight 결정론적 정규화 (5/3 적용)
+
+LAYER5 출력의 `portfolio_weight: 0~1`을 LLM이 통째로 결정하던 위험:
+- Kelly·equal-weight·confidence-weighted 어느 것? 명세 없음
+- 합계 1.0 보장 X
+- 기존 holdings 비중 reconcile X
+
+**5/3 적용**:
+- `normalize_portfolio_weights(stocks, holdings_map, cash_buffer=0.10)` 후처리 함수
+- 공식: `raw = max(0, SIGNAL_SCORE) × CONFIDENCE_WEIGHT` (long-only)
+  - 강한매수=2.0 / 매수=1.0 / 중립·매도·강한매도=0
+  - 높음=1.0 / 중간=0.7 / 낮음=0.4
+- `weight = raw / sum(raw) × (1 - cash_buffer)` (현금 buffer 10%)
+- 합계 ≤ 0.9 보장
+- LLM이 weight 출력해도 무시·덮어씀 — signal·confidence만 사용
+- SYSTEM_PROMPT 분석 원칙 12번에 명시
+
+**검증**: 4 stock (강매수+높음/매수+중간/중립/매도) → 0.667/0.233/0/0 합계 0.900 정상.
+
+## 8. 법적 안전장치 — 개인 연구용 명시 (5/3 적용)
+
+LAYER5가 매수·매도 신호 직접 생성 → 자본시장법상 유사투자자문업 해석 여지. 자기 사용 한정이라도 명시 안전.
+
+**5/3 적용**:
+- LAYER5 README 최상단 ⚠️ Disclaimer 섹션:
+  - "research signals for personal study only. NOT investment advice."
+  - 자본시장법 투자권유·자문 X
+  - 자기 사용 한정. 외부 배포·상업화 금지
+  - LLM 비결정성·데이터 lag·mock 잔존 → reference only
+- 모든 Telegram 알림 (poc_run·analyze_stock) 끝에 면책 문구 박음:
+  - "⚠️ 개인 연구용 신호. 투자 자문 X. 손익 책임 사용자."
+- watchlist.json `.gitignore` 강제 (개인 보유 정보 절대 공개 X) — 양 repo 모두
+
 ---
 
 ## 운영 의사결정에 미치는 영향
@@ -132,6 +181,9 @@ class Layer2Output:
 3. ✅ **#3 추적·교정 사이클** (5/3 적용) — abs_diff per ticker + compare_cohorts + cohort tag 자동 부착 (prompt_sha/git_sha/schema)
 4. ❌ **#1 21-case harness — 폐기** (5/3) — 본질 = 자연 운영 누적 + cohort 비교. 인위 시나리오 불필요
 5. **#2 Mock 갭** (지속) — 외부 source wire-up 진행 중, 잔여 후속
+6. ✅ **#6 시계 라벨** (5/3 적용) — `as_of_period` "2025.12" 추출 + prompt 박음
+7. ✅ **#7 portfolio_weight 결정론** (5/3 적용) — `normalize_portfolio_weights` confidence-weighted long-only + cash buffer 10%
+8. ✅ **#8 법적 안전장치** (5/3 적용) — README Disclaimer + 알림 면책 문구 + watchlist.json gitignore
 
 ---
 
