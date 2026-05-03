@@ -38,23 +38,31 @@ PoC 단계에서 일부 변수는 실데이터 wire-up 안 됨:
 **시뮬레이션 v5 "L4 풀 가동" 표현의 한계**:
 LAYER1 다차원 + crisis_mode + L4 SYSTEM_PROMPT 동적 가중까지 활성화된 상태이지만, **외인 매매 데이터가 watchlist 한정**이라 universe 종목 분석에선 그 데이터 없이 LLM이 추정. "풀 가동"은 LAYER1·LAYER4 분석 메커니즘 풀 가동일 뿐, 입력 데이터 풀 가용은 아님.
 
-## 3. branch 머지 평가 임계값 부재 (정량화 필요)
+## 3. branch 머지 평가 — 본질은 추적·교정 사이클 (임계는 trigger)
 
-LAYER3·LAYER4 모두 `feature/*` branch 미머지 상태. 평가 항목 명시:
-- 매일 1~2회 호출 → 시장 결과와 대조
-- rationale 품질 (LAYER2 변수 활용도)
-- 모순 분석 일관성
-- 비용 (subscription 한도 영향)
+**사용자 지적 정정**: 임계값 박는 것 자체가 목적이 아니다. 본질은:
+- **티커별 raw % 차이 누적 추적** (예측 midpoint vs 실제 등락률)
+- **교정 전후 cohort 비교**로 차이 감소량 정량화
+- 임계는 "교정 여부 결정 trigger" + "회귀 알림 기준"일 뿐
 
-**부재**:
-- "rationale 품질" 점수화 방법 (3점 척도? Claude critique?)
-- "일관성" 측정 (같은 입력 3회 호출 시 결과 일치율)
-- "시장 결과와 대조" 합격 임계값 (방향 70%? 등급 50%?)
+**구현** (5/3 적용):
+- `_eval_market()`에 `abs_diff` per ticker 박음 — `pred_midpoint`(라벨→%) vs `actual_pct` 절대 차이
+- 시장 평균 `avg_abs_diff` + `max_abs_diff` 메트릭 — 교정 baseline
+- `compare_cohorts(log_path, cohort_field, market)` — 누적 `_log.jsonl`에서 cohort tag별 평균 abs_diff 비교 + delta 계산 + regression 알림 (after > before면 회귀)
+- `LABEL_MIDPOINT` dict — 강한호재 +5%, 호재 +1.75%, 중립 0%, 악재 -1.75%, 강한악재 -5% (typical 중간값)
 
-**개선 후보**:
-- 21-case harness (법률봇에서 검증된 패턴): 미리 정의된 21 시나리오 × 3회 평균
-- 사전 합격 임계값 박제 — 후행 정성 결정 회피
-- 4/3 채팅에서 사용자가 직접 발견했던 "1주 후 정성 결정" 함정 회피
+**측정 사이클**:
+1. forecast 생성 시 cohort tag 자동 부착 (`prompt_version`/`schema_version`/`model`/`git_sha` 등 — 후속)
+2. 매 영업일 actual 주입 후 평가 → `_log.jsonl`에 sector별 `abs_diff` 누적
+3. 교정 (예: SYSTEM_PROMPT 변경, RAG 임베딩 도입) 시 cohort 분기
+4. `compare_cohorts()` 로 교정 전후 평균 abs_diff 차이 측정
+5. 회귀 발생 시 (after > before) 즉시 알림 → 교정 롤백 결정
+
+**MERGE_THRESHOLDS는 trigger**: 직관적 합격선 (방향 70%/강도 60%/avg_abs_diff <2%p 등). 단 본질은 추적·축적·정량 교정 효과.
+
+**잔여 후속**:
+- forecast 생성 시 cohort tag 자동 부착 (5분, generate_forecast.py 보강)
+- 21-case harness — 사용자 의도 정정: 단순 시나리오 정의가 아닌 **추적·교정 사이클 검증용**. 별도 회차 결정
 
 ## 4. LLM 비결정성 처리 부재
 
